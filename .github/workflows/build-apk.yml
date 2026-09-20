@@ -13,10 +13,6 @@ jobs:
     permissions:
       contents: read
 
-    defaults:
-      run:
-        working-directory: LocationPeek
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -39,6 +35,25 @@ jobs:
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
 
+      - name: Projektordner finden
+        run: |
+          echo "Repository-Inhalt:"
+          ls -la
+          echo
+
+          PROJECT_FILE="$(find . -maxdepth 3 -name settings.gradle.kts -print -quit)"
+
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "FEHLER: settings.gradle.kts wurde nicht gefunden."
+            find . -maxdepth 3 -type f
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$PROJECT_FILE")"
+
+          echo "Projekt gefunden in: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
       - name: Gradle 8.9 einrichten
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -46,21 +61,33 @@ jobs:
 
       - name: Projekt prüfen
         run: |
-          pwd
-          ls -la
-          ls -la app
+          echo "Verwendeter Projektordner: $PROJECT_DIR"
+          ls -la "$PROJECT_DIR"
+          ls -la "$PROJECT_DIR/app"
 
       - name: APK bauen
-        run: gradle --no-daemon assembleDebug
-
-      - name: APK umbenennen
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk \
-             LocationPeek-v1.0.0.apk
+          cd "$PROJECT_DIR"
+          gradle --no-daemon assembleDebug
+
+      - name: APK finden und umbenennen
+        run: |
+          APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "APK wurde nicht gefunden."
+            find "$PROJECT_DIR" -type f -name "*.apk"
+            exit 1
+          fi
+
+          cp "$APK" LocationPeek-v1.0.0.apk
+
+          echo "Fertige APK:"
+          ls -lh LocationPeek-v1.0.0.apk
 
       - name: APK bereitstellen
         uses: actions/upload-artifact@v4
         with:
           name: LocationPeek-v1.0.0-APK
-          path: LocationPeek/LocationPeek-v1.0.0.apk
+          path: LocationPeek-v1.0.0.apk
           if-no-files-found: error

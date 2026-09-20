@@ -25,3 +25,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+dependencies {
+    implementation("com.google.android.gms:play-services-location:21.4.0")
+}
